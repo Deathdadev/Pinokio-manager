@@ -1,6 +1,6 @@
 # Pinokio Manager
 
-A modern, cross-platform desktop application for managing Pinokio installations, built with Electron.
+A modern, cross-platform desktop application for managing Pinokio installations.
 
 ## Demo
 
