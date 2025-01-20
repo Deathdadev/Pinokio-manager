@@ -1,0 +1,49 @@
+{
+  "name": "pinokio-manager",
+  "version": "1.0.0",
+  "description": "A modern UI for managing Pinokio versions",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "pinokio",
+    "version-manager",
+    "electron"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "extract-zip": "^2.0.1",
+    "marked": "^15.0.6"
+  },
+  "devDependencies": {
+    "electron": "^27.1.2",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.pinokio.manager",
+    "productName": "Pinokio Manager",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "icon": "assets/icon.png"
+    }
+  }
+}

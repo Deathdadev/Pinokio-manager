@@ -1,0 +1,9 @@
+main.py
+oldmainpy
+package-lock.json
+dist/*
+node_modules/*
+.env
+.DS_Store
+.vscode
+.venv/*

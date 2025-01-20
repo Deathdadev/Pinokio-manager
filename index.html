@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+    <title>Pinokio Manager</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+    <style>
+        :root[data-theme="light"] {
+            --bg-color: #f8f9fa;
+            --text-color: #2d3436;
+            --card-bg: #ffffff;
+            --border-color: #e9ecef;
+            --hover-bg: #f1f3f5;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --titlebar-bg: #1e293b;
+            --titlebar-text: #ffffff;
+            --sidebar-bg: #ffffff;
+            --nav-text: #64748b;
+            --nav-hover: #3b82f6;
+            --nav-active-bg: #ebf5ff;
+            --label-color: #64748b;
+            --info-text: #1e293b;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --warning-bg: #fff7ed;
+            --warning-border: #fdba74;
+            --warning-text: #c2410c;
+            --code-bg: #f8fafc;
+            --code-text: #334155;
+            --code-border: #e2e8f0;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-color: #0f172a;
+            --text-color: #e2e8f0;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --hover-bg: #283548;
+            --primary-color: #3b82f6;
+            --primary-hover: #60a5fa;
+            --titlebar-bg: #0f172a;
+            --titlebar-text: #e2e8f0;
+            --sidebar-bg: #1e293b;
+            --nav-text: #94a3b8;
+            --nav-hover: #60a5fa;
+            --nav-active-bg: rgba(59, 130, 246, 0.15);
+            --label-color: #94a3b8;
+            --info-text: #e2e8f0;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --error-color: #ef4444;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --warning-border: #d97706;
+            --warning-text: #fbbf24;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --code-border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+        }
+
+        body {
+            background: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        .titlebar {
+            height: 38px;
+            background: var(--titlebar-bg);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            justify-content: space-between;
+            -webkit-app-region: drag;
+            color: var(--titlebar-text);
+            font-weight: 500;
+        }
+
+        .titlebar-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .theme-toggle {
+            -webkit-app-region: no-drag;
+            background: none;
+            border: none;
+            color: var(--titlebar-text);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .window-controls {
+            -webkit-app-region: no-drag;
+            display: flex;
+            gap: 8px;
+        }
+
+        .window-control {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            opacity: 0.9;
+        }
+
+        .window-control:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .close { background: #ff5f57; }
+        .minimize { background: #ffbd2e; }
+        .maximize { background: #28c940; }
+
+        .app-container {
+            display: flex;
+            height: calc(100vh - 32px);
+        }
+
+        .sidebar {
+            width: 220px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 20px 0;
+            -webkit-app-region: no-drag;
+        }
+
+        .nav-item {
+            padding: 12px 20px;
+            margin: 4px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--nav-text);
+            transition: all 0.2s ease;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: var(--hover-bg);
+            color: var(--nav-hover);
+        }
+
+        .nav-item.active {
+            background: var(--nav-active-bg);
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            -webkit-app-region: no-drag;
+        }
+
+        .view {
+            display: none;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-color);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .info-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 16px;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .info-item:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: var(--card-shadow);
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--label-color);
+            margin-bottom: 6px;
+            font-weight: 500;
+            text-align: left;
+        }
+
+        .info-value {
+            font-size: 15px;
+            color: var(--info-text);
+            word-break: break-word;
+            font-weight: 500;
+            text-align: left;
+        }
+
+        .update-option {
+            padding: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--card-bg);
+        }
+
+        .update-option:hover {
+            border-color: var(--primary-color);
+            background: var(--hover-bg);
+        }
+
+        .update-option.selected {
+            border-color: var(--primary-color);
+            background: var(--hover-bg);
+        }
+
+        .version-tag {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .version-type {
+            font-size: 12px;
+            color: var(--label-color);
+        }
+
+        .action-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .action-button:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .action-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .storage-bar {
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .gpu-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+
+        .gpu-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--hover-bg);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+        }
+
+        .release-notes {
+            background: var(--code-bg);
+            border: 1px solid var(--code-border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            color: var(--code-text);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .release-notes pre, .release-notes code {
+            background: color-mix(in srgb, var(--code-bg) 70%, var(--border-color));
+            border: 1px solid var(--code-border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            color: #f44336;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        /* Quick Actions Grid */
+        .quick-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .quick-action-button {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            text-align: center;
+            color: var(--text-color);
+        }
+
+        .quick-action-button:hover {
+            border-color: var(--primary-color);
+            background: var(--hover-bg);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .quick-action-button small {
+            color: var(--label-color);
+        }
+
+        /* Storage Section Styles */
+        .storage-overview {
+            margin-bottom: 16px;
+        }
+
+        .storage-details {
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--label-color);
+            text-align: left;
+        }
+
+        .folder-content,
+        .app-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+        }
+
+        .folder-info,
+        .app-info,
+        .subdir-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-right: 12px;
+        }
+
+        .folder-name,
+        .app-name,
+        .subdir-name {
+            color: var(--text-color);
+            font-size: 14px;
+        }
+
+        .folder-size,
+        .app-size,
+        .subdir-size {
+            color: var(--label-color);
+            font-size: 12px;
+            text-align: right;
+            min-width: 120px;
+        }
+
+        .expand-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            width: 32px;
+            height: 32px;
+        }
+
+        .expand-button:hover {
+            background: var(--hover-bg);
+            color: var(--primary-color);
+        }
+
+        .expand-button svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.2s ease;
+        }
+
+        .expand-button.expanded svg {
+            transform: rotate(180deg);
+        }
+
+        .apps-list,
+        .subdirs-list {
+            display: none;
+            margin-left: 24px;
+            padding-left: 16px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .apps-list.expanded,
+        .subdirs-list.expanded {
+            display: block;
+        }
+
+        .app-item,
+        .subdir-item {
+            margin: 4px 0;
+        }
+
+        .folder-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 4px;
+            overflow: hidden;
+        }
+
+        .folder-item:hover {
+            border-color: var(--primary-color);
+        }
+
+        /* Loading state styles */
+        .storage-item.loading .storage-overview {
+            opacity: 0.7;
+        }
+
+        .storage-item.loading .storage-details {
+            text-align: left;
+            opacity: 0.7;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 3px solid var(--border-color);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        /* Dark mode styles for markdown */
+        [data-theme="dark"] .markdown-body {
+            color-scheme: dark;
+            --color-prettylights-syntax-comment: #8b949e;
+            --color-prettylights-syntax-constant: #79c0ff;
+            --color-prettylights-syntax-entity: #d2a8ff;
+            --color-prettylights-syntax-storage-modifier-import: #c9d1d9;
+            --color-prettylights-syntax-entity-tag: #7ee787;
+            --color-prettylights-syntax-keyword: #ff7b72;
+            --color-prettylights-syntax-string: #a5d6ff;
+            --color-prettylights-syntax-variable: #ffa657;
+            --color-prettylights-syntax-brackethighlighter-unmatched: #f85149;
+            --color-prettylights-syntax-invalid-illegal-text: #f0f6fc;
+            --color-prettylights-syntax-invalid-illegal-bg: #8e1519;
+            --color-prettylights-syntax-carriage-return-text: #f0f6fc;
+            --color-prettylights-syntax-carriage-return-bg: #b62324;
+            --color-prettylights-syntax-string-regexp: #7ee787;
+            --color-prettylights-syntax-markup-list: #f2cc60;
+            --color-prettylights-syntax-markup-heading: #1f6feb;
+            --color-prettylights-syntax-markup-italic: #c9d1d9;
+            --color-prettylights-syntax-markup-bold: #c9d1d9;
+            --color-prettylights-syntax-markup-deleted-text: #ffdcd7;
+            --color-prettylights-syntax-markup-deleted-bg: #67060c;
+            --color-prettylights-syntax-markup-inserted-text: #aff5b4;
+            --color-prettylights-syntax-markup-inserted-bg: #033a16;
+            --color-prettylights-syntax-markup-changed-text: #ffdfb6;
+            --color-prettylights-syntax-markup-changed-bg: #5a1e02;
+            --color-prettylights-syntax-markup-ignored-text: #c9d1d9;
+            --color-prettylights-syntax-markup-ignored-bg: #1158c7;
+            --color-prettylights-syntax-meta-diff-range: #d2a8ff;
+            --color-prettylights-syntax-brackethighlighter-angle: #8b949e;
+            --color-prettylights-syntax-sublimelinter-gutter-mark: #484f58;
+            --color-prettylights-syntax-constant-other-reference-link: #a5d6ff;
+            --color-fg-default: #c9d1d9;
+            --color-fg-muted: #8b949e;
+            --color-fg-subtle: #6e7681;
+            --color-canvas-default: #0d1117;
+            --color-canvas-subtle: #161b22;
+            --color-border-default: #30363d;
+            --color-border-muted: #21262d;
+            --color-neutral-muted: rgba(110,118,129,0.4);
+            --color-accent-fg: #58a6ff;
+            --color-accent-emphasis: #1f6feb;
+            --color-attention-subtle: rgba(187,128,9,0.15);
+            --color-danger-fg: #f85149;
+        }
+
+        [data-theme="dark"] .markdown-body {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        .markdown-body {
+            background-color: transparent;
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Update storage styles */
+        .storage-item {
+            position: relative;
+            min-height: 100px;
+        }
+
+        .storage-item.loading .storage-overview,
+        .storage-item.loading .storage-expand {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        /* Update release styles */
+        .update-option {
+            position: relative;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+        }
+
+        .update-option .install-button {
+            margin-top: 16px;
+            width: auto;
+            padding: 8px 16px;
+        }
+
+        .update-option.incompatible {
+            opacity: 0.5;
+        }
+
+        /* Add styles for subdirectories */
+        .subdirs-list {
+            margin-left: 24px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .subdir-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 8px;
+            font-size: 12px;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        .subdir-name {
+            color: var(--text-color);
+        }
+
+        .subdir-size {
+            color: var(--label-color);
+        }
+
+        /* Style for the recalculate button */
+        #recalculateStorage {
+            margin-top: 16px;
+        }
+
+        #recalculateStorage svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Loading state - scope it specifically to storage view */
+        #storage .info-item.loading .storage-bar-fill {
+            background: var(--border-color);
+        }
+
+        #storage .info-item.loading .info-value {
+            opacity: 0.7;
+        }
+
+        #recalculateStorage {
+            margin-top: 16px;
+        }
+
+        #recalculateStorage.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        #recalculateStorage.loading svg {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Storage header styles */
+        .storage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .storage-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        /* Icon button styles */
+        .icon-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            transition: all 0.2s ease;
+            width: 32px;
+            height: 32px;
+        }
+
+        .icon-button:hover {
+            background: var(--hover-bg);
+        }
+
+        .icon-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .icon-button.spinning svg {
+            animation: spin 1s linear infinite;
+        }
+
+        .icon-button svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Collapsible sections */
+        .folder-expand,
+        .app-expand {
+            cursor: pointer;
+            color: var(--primary-color);
+            font-size: 12px;
+            padding: 8px;
+            margin-left: 16px;
+            user-select: none;
+        }
+
+        .apps-list,
+        .subdirs-list {
+            display: none;
+            margin-left: 24px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .apps-list.expanded,
+        .subdirs-list.expanded {
+            display: block;
+        }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Peer Checker Styles */
+        .peer-section {
+            margin-bottom: 24px;
+        }
+
+        .peer-section h3 {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-color);
+            margin-bottom: 12px;
+        }
+
+        .results-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .result-item {
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .result-item.success {
+            color: var(--success-color);
+            background: color-mix(in srgb, var(--success-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--success-color) 20%, transparent);
+        }
+
+        .result-item.error {
+            color: var(--error-color);
+            background: color-mix(in srgb, var(--error-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--error-color) 20%, transparent);
+        }
+
+        .result-item.warning {
+            color: var(--warning-color);
+            background: color-mix(in srgb, var(--warning-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--warning-color) 20%, transparent);
+        }
+
+        .result-item.info {
+            color: var(--text-color);
+            background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+            border-color: color-mix(in srgb, var(--primary-color) 15%, transparent);
+        }
+
+        .result-item .spinning {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+            font-size: 16px;
+            margin-right: 8px;
+            color: var(--primary-color);
+        }
+
+        /* Make the loading items slightly dimmed */
+        .result-item.info:has(.spinning) {
+            opacity: 0.8;
+            background: rgba(33, 150, 243, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        /* Add fade transitions for result items */
+        .result-item {
+            opacity: 0;
+            transform: translateY(5px);
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Add a subtle pulse animation to loading items */
+        .result-item.loading {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { background-color: rgba(33, 150, 243, 0.05); }
+            50% { background-color: rgba(33, 150, 243, 0.1); }
+            100% { background-color: rgba(33, 150, 243, 0.05); }
+        }
+
+        #runPeerCheck {
+            margin-top: 16px;
+        }
+
+        #peerResults {
+            display: none;
+        }
+
+        #peerResults.active {
+            display: block;
+        }
+
+        /* Peer Checker Styles */
+        .warning-box {
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .warning-box h3 {
+            color: var(--warning-text);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .warning-box p {
+            color: var(--text-color);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .warning-box ul {
+            margin: 0;
+            padding-left: 24px;
+        }
+
+        .warning-box li {
+            color: var(--text-color);
+            font-size: 14px;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .action-group {
+            margin-top: 16px;
+        }
+
+        .confirmation-checkbox {
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .confirmation-checkbox input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .confirmation-checkbox label {
+            font-size: 14px;
+            color: var(--text-color);
+        }
+
+        .action-button.danger {
+            background: #f32517;
+        }
+
+        .action-button.danger:hover {
+            background: #c40a0a;
+        }
+
+        .action-button.danger:disabled {
+            background: #3a3a3a;
+            cursor: not-allowed;
+        }
+
+        /* Global scrollbar styles */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: transparent transparent;
+        }
+
+        *::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Show scrollbar only when hovering over scrollbar area */
+        *::-webkit-scrollbar:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        *::-webkit-scrollbar-thumb:hover {
+            background: var(--border-color);
+        }
+
+        /* Show scrollbar while scrolling */
+        .is-scrolling::-webkit-scrollbar-thumb {
+            background: var(--border-color) !important;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Firefox styles */
+        .is-scrolling {
+            scrollbar-color: var(--border-color) transparent !important;
+            transition: scrollbar-color 0.3s ease;
+        }
+
+        /* Loading button styles */
+        .action-button.loading {
+            position: relative;
+            padding-left: 44px;
+            pointer-events: none;
+            opacity: 0.9;
+            background: var(--primary-color);
+            color: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;
+        }
+
+        .action-button.loading::before {
+            content: '';
+            position: absolute;
+            left: 16px;
+            top: 0;
+            bottom: 0;
+            margin: auto;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .action-button:disabled {
+            background: var(--border-color);
+            color: var(--label-color);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .action-button.danger:disabled {
+            background: var(--border-color);
+            opacity: 0.7;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Update warning box styles */
+        .warning-box {
+            background: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .warning-box h3 {
+            color: var(--warning-text);
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .warning-box p {
+            color: var(--text-color);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .warning-box ul {
+            margin: 0;
+            padding-left: 24px;
+        }
+
+        .warning-box li {
+            color: var(--text-color);
+            font-size: 14px;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        /* Update code and path styling */
+        .code-block, .file-path {
+            background: var(--code-bg);
+            border: 1px solid var(--code-border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            color: var(--code-text);
+            margin: 4px 0;
+        }
+
+        /* Update result items styling */
+        .result-item {
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .result-item.success {
+            color: var(--success-color);
+            background: color-mix(in srgb, var(--success-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--success-color) 20%, transparent);
+        }
+
+        .result-item.error {
+            color: var(--error-color);
+            background: color-mix(in srgb, var(--error-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--error-color) 20%, transparent);
+        }
+
+        .result-item.warning {
+            color: var(--warning-color);
+            background: color-mix(in srgb, var(--warning-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--warning-color) 20%, transparent);
+        }
+
+        .result-item.info {
+            color: var(--text-color);
+            background: color-mix(in srgb, var(--primary-color) 5%, transparent);
+            border-color: color-mix(in srgb, var(--primary-color) 15%, transparent);
+        }
+
+        /* Update file paths display */
+        .drive-info {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .drive-info-label {
+            color: var(--label-color);
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .drive-info-value {
+            color: var(--text-color);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            padding: 4px 8px;
+            background: var(--code-bg);
+            border: 1px solid var(--code-border);
+            border-radius: 4px;
+        }
+
+        /* Storage bar styles - keep these as they're unique to storage functionality */
+        .storage-bar {
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        /* Update folder styles to use consistent patterns */
+        .storage-folders {
+            margin-top: 24px;
+        }
+
+        .folder-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .folder-item:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: var(--card-shadow);
+        }
+
+        .folder-content,
+        .app-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+        }
+
+        .folder-info,
+        .app-info,
+        .subdir-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-right: 12px;
+        }
+
+        .folder-name,
+        .app-name,
+        .subdir-name {
+            color: var(--text-color);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .folder-size,
+        .app-size,
+        .subdir-size {
+            color: var(--label-color);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .apps-list,
+        .subdirs-list {
+            display: none;
+            margin-left: 24px;
+            padding-left: 16px;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .apps-list.expanded,
+        .subdirs-list.expanded {
+            display: block;
+        }
+
+        .app-item,
+        .subdir-item {
+            margin: 4px 0;
+        }
+
+        .expand-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+            width: 32px;
+            height: 32px;
+        }
+
+        .expand-button:hover {
+            background: var(--hover-bg);
+            color: var(--primary-color);
+        }
+
+        .expand-button svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.2s ease;
+        }
+
+        .expand-button.expanded svg {
+            transform: rotate(180deg);
+        }
+
+        #recalculateStorage {
+            margin-top: 16px;
+        }
+
+        #recalculateStorage svg {
+            margin-right: 8px;
+        }
+
+        /* Loading state */
+        .info-item.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .info-item.loading .storage-bar-fill {
+            background: var(--border-color);
+        }
+
+        .info-item.loading .info-value {
+            opacity: 0.7;
+        }
+
+        #recalculateStorage.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        #recalculateStorage.loading svg {
+            animation: spin 1s linear infinite;
+        }
+
+    </style>
+    <script>
+        // Add scroll detection
+        document.addEventListener('DOMContentLoaded', () => {
+            const scrollableElements = document.querySelectorAll('.main-content, .results-section');
+            
+            scrollableElements.forEach(element => {
+                let scrollTimeout;
+                
+                element.addEventListener('scroll', () => {
+                    // Add class while scrolling
+                    element.classList.add('is-scrolling');
+                    
+                    // Clear existing timeout
+                    if (scrollTimeout) {
+                        clearTimeout(scrollTimeout);
+                    }
+                    
+                    // Remove class after scrolling stops
+                    scrollTimeout = setTimeout(() => {
+                        element.classList.remove('is-scrolling');
+                    }, 1000); // Hide after 1 second of no scrolling
+                });
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="titlebar">
+        <div class="title">Pinokio Manager</div>
+        <div class="titlebar-controls">
+            <button class="theme-toggle" id="themeToggle">🌓</button>
+            <div class="window-controls">
+                <div class="window-control minimize" id="minimizeBtn"></div>
+                <div class="window-control maximize" id="maximizeBtn"></div>
+                <div class="window-control close" id="closeBtn"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="nav-item active" data-view="overview">
+                <span>Overview</span>
+            </div>
+            <div class="nav-item" data-view="updates">
+                <span>Updates</span>
+            </div>
+            <div class="nav-item" data-view="system">
+                <span>System Info</span>
+            </div>
+            <div class="nav-item" data-view="storage">
+                <span>Storage</span>
+            </div>
+            <div class="nav-item" data-view="graphics">
+                <span>Graphics</span>
+            </div>
+            <div class="nav-item" data-view="peers">
+                <span>Peer Checker</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Overview View -->
+            <div class="view active" id="overview">
+                <div class="card">
+                    <div class="card-title">System Overview</div>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Pinokio Version</div>
+                            <div class="info-value" id="pinokioVersion">Loading...</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Platform</div>
+                            <div class="info-value" id="platform">Loading...</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Architecture</div>
+                            <div class="info-value" id="arch">Loading...</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Installation Path</div>
+                            <div class="info-value" id="installPath">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Quick Actions</div>
+                    <div class="quick-actions-grid">
+                        <div class="quick-action-button" id="launchPinokioBtn">
+                            <span>Launch Pinokio</span>
+                        </div>
+                        <div class="quick-action-button" id="quickUpdateBtn">
+                            <span>Quick Update</span>
+                            <small>Latest Stable Version</small>
+                        </div>
+                        <div class="quick-action-button" id="experimentalUpdateBtn">
+                            <span>Experimental Update</span>
+                            <small>Latest Development Build</small>
+                        </div>
+                        <div class="quick-action-button" id="checkUpdatesBtn">
+                            <span>Check Updates</span>
+                            <small>View All Versions</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Updates View -->
+            <div class="view" id="updates">
+                <div class="card">
+                    <div class="card-title">Available Updates</div>
+                    <div id="updatesList">
+                        <div class="loading">Loading available updates...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Info View -->
+            <div class="view" id="system">
+                <div class="card">
+                    <div class="card-title">CPU Information</div>
+                    <div id="cpuInfo" class="info-grid"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Memory Usage</div>
+                    <div id="memoryInfo"></div>
+                </div>
+            </div>
+
+            <!-- Storage View -->
+            <div class="view" id="storage">
+                <div class="card">
+                    <div class="card-title">Storage Usage</div>
+                    <div id="storageInfo">
+                        <div class="info-item">
+                            <div class="info-value">Calculating storage usage...</div>
+                            <div class="storage-bar">
+                                <div class="storage-bar-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="action-button" id="recalculateStorage">Recalculate</button>
+                </div>
+            </div>
+
+            <!-- Graphics View -->
+            <div class="view" id="graphics">
+                <div class="card">
+                    <div class="card-title">GPU Information</div>
+                    <div id="gpuInfo"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Display Information</div>
+                    <div id="displayInfo"></div>
+                </div>
+            </div>
+
+            <!-- Peer Checker View -->
+            <div class="view" id="peers">
+                <div class="card">
+                    <div class="card-title">⚠️ Peer Directory Checker</div>
+                    <div class="warning-box">
+                        <h3>⚠️ Warning</h3>
+                        <p>This tool performs a deep inspection of your Pinokio drive directory and drives.json file. While it doesn't modify any files, it may expose sensitive information. Please ensure:</p>
+                        <ul>
+                            <li>Pinokio is running and accessible</li>
+                            <li>You understand what this tool will check</li>
+                            <li>You have backed up your drives.json file</li>
+                        </ul>
+                    </div>
+                    <div id="peerStatus" class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Drive Directory</div>
+                            <div class="info-value" id="driveDir">Not checked yet</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Peer Directory</div>
+                            <div class="info-value" id="peerDir">Not checked yet</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">JSON File</div>
+                            <div class="info-value" id="jsonFile">Not checked yet</div>
+                        </div>
+                    </div>
+                    <div class="action-group">
+                        <div class="confirmation-checkbox">
+                            <input type="checkbox" id="confirmCheck">
+                            <label for="confirmCheck">I understand the implications of running this check</label>
+                        </div>
+                        <button class="action-button danger" id="runPeerCheck">Run Directory Check</button>
+                    </div>
+                </div>
+                
+                <div class="card" id="resultsCard" style="display: none;">
+                    <div class="card-title">Check Results</div>
+                    <div id="peerResults">
+                        <div class="peer-section">
+                            <h3>Directories</h3>
+                            <div id="dirResults" class="results-section"></div>
+                        </div>
+                        <div class="peer-section">
+                            <h3>JSON Repositories</h3>
+                            <div id="jsonResults" class="results-section"></div>
+                        </div>
+                        <div class="peer-section">
+                            <h3>Duplicate Check</h3>
+                            <div id="dupeResults" class="results-section"></div>
+                        </div>
+                        <div class="peer-section">
+                            <h3>Orphan Check</h3>
+                            <div id="orphanResults" class="results-section"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="renderer.js"></script>
+</body>
+</html> 
