@@ -10,6 +10,84 @@ const extract = require('extract-zip');
 const { spawn } = require('child_process');
 const { opendir, readFile, access, constants } = require('fs/promises');
 
+// Configuration manager
+const configPath = path.join(app.getPath('userData'), 'config.json');
+let appConfig = {
+    pinokioPath: 'C:\\pinokio', // Default path
+    pinokioExePath: path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Pinokio', 'Pinokio.exe'),
+    lastKnownVersion: null,
+    initialized: false,
+    cache: {
+        pinokioVersion: null,
+        lastStorageCalculation: null,
+        lastStorageUpdate: null,
+        systemInfo: null,
+        lastUpdate: null
+    }
+};
+
+// Load configuration
+function loadConfig() {
+    try {
+        if (fs.existsSync(configPath)) {
+            const data = fs.readFileSync(configPath, 'utf8');
+            const savedConfig = JSON.parse(data);
+            
+            // Merge with default config to ensure all fields exist
+            appConfig = {
+                ...appConfig,
+                ...savedConfig,
+                cache: {
+                    ...appConfig.cache,
+                    ...(savedConfig.cache || {})
+                }
+            };
+        }
+    } catch (error) {
+        console.error('Error loading config:', error);
+    }
+}
+
+// Save configuration
+function saveConfig() {
+    try {
+        // Update last update timestamp
+        appConfig.cache.lastUpdate = Date.now();
+        fs.writeFileSync(configPath, JSON.stringify(appConfig, null, 2));
+    } catch (error) {
+        console.error('Error saving config:', error);
+    }
+}
+
+// Load config at startup
+loadConfig();
+
+// Add configuration IPC handlers
+ipcMain.handle('get-app-config', () => {
+    return appConfig;
+});
+
+ipcMain.handle('update-app-config', (event, newConfig) => {
+    appConfig = { ...appConfig, ...newConfig };
+    saveConfig();
+    return appConfig;
+});
+
+ipcMain.handle('initialize-app', async (event, config) => {
+    try {
+        // Verify Pinokio path exists
+        await access(config.pinokioPath, constants.R_OK);
+        
+        // Update config
+        appConfig = { ...appConfig, ...config, initialized: true };
+        saveConfig();
+        
+        return { success: true, config: appConfig };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
 let mainWindow;
 
 // Disable GPU acceleration since we don't need it for this app
@@ -366,11 +444,31 @@ ipcMain.handle('install-version', async (event, { url, filename }) => {
 // Get drive information
 ipcMain.handle('get-drive-info', async (event, driveLetter) => {
     try {
-        const { execFile } = require('child_process');
-        const util = require('util');
-        const execFileAsync = util.promisify(execFile);
-
+        const si = require('systeminformation');
+        const drives = await si.fsSize();
+        
+        // Find the drive that matches the drive letter
+        const drive = drives.find(d => {
+            const mount = process.platform === 'win32' ? 
+                d.mount.toLowerCase().charAt(0) : 
+                d.mount;
+            return mount === driveLetter.toLowerCase();
+        });
+        
+        if (drive) {
+            return {
+                total: drive.size,
+                free: drive.available,
+                used: drive.used
+            };
+        }
+        
+        // Fallback to wmic on Windows
         if (process.platform === 'win32') {
+            const { execFile } = require('child_process');
+            const util = require('util');
+            const execFileAsync = util.promisify(execFile);
+
             const { stdout } = await execFileAsync('wmic', [
                 'logicaldisk',
                 'where',
@@ -391,13 +489,7 @@ ipcMain.handle('get-drive-info', async (event, driveLetter) => {
             }
         }
         
-        // Fallback or other OS support
-        const stats = await fs.promises.statfs(driveLetter + ':\\');
-        return {
-            total: stats.blocks * stats.bsize,
-            free: stats.bfree * stats.bsize,
-            used: (stats.blocks - stats.bfree) * stats.bsize
-        };
+        throw new Error('Drive not found');
     } catch (error) {
         console.error('Error getting drive info:', error);
         throw error;
@@ -555,4 +647,122 @@ ipcMain.handle('check-duplicates', async (event, { json, jsonFile }) => {
     } catch (error) {
         throw new Error(`Error checking duplicates: ${error.message}`);
     }
+});
+
+// Add directory browser
+ipcMain.handle('browse-directory', async () => {
+    const { dialog } = require('electron');
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openDirectory']
+    });
+    
+    if (!result.canceled) {
+        return result.filePaths[0];
+    }
+    return null;
+});
+
+// Update system information handler to include more details
+ipcMain.handle('get-system-info', async () => {
+    const si = require('systeminformation');
+    
+    try {
+        const [cpu, mem, graphics] = await Promise.all([
+            si.cpu(),
+            si.mem(),
+            si.graphics()
+        ]);
+
+        const cpuInfo = {
+            brand: cpu.brand,
+            cores: cpu.cores,
+            physicalCores: cpu.physicalCores,
+            speed: cpu.speed,
+            socket: cpu.socket || 'Unknown'
+        };
+
+        const memInfo = {
+            total: mem.total,
+            free: mem.free,
+            used: mem.used,
+            active: mem.active,
+            available: mem.available
+        };
+
+        const gpuInfo = {
+            controllers: graphics.controllers.map(controller => ({
+                model: controller.model,
+                vendor: controller.vendor,
+                vram: controller.vram,
+                driverVersion: controller.driverVersion
+            })),
+            displays: graphics.displays.map(display => ({
+                model: display.model || 'Generic Display',
+                main: display.main,
+                currentResX: display.currentResX,
+                currentResY: display.currentResY,
+                currentRefreshRate: display.currentRefreshRate,
+                builtin: display.builtin
+            }))
+        };
+
+        return {
+            cpu: cpuInfo,
+            memory: memInfo,
+            graphics: gpuInfo,
+            platform: os.platform(),
+            arch: os.arch(),
+            release: os.release()
+        };
+    } catch (error) {
+        console.error('Error getting system info:', error);
+        // Return basic info if detailed info fails
+        return {
+            cpu: {
+                brand: os.cpus()[0].model,
+                cores: os.cpus().length,
+                physicalCores: os.cpus().length / (os.cpus()[0].model.includes('Intel') ? 2 : 1),
+                speed: os.cpus()[0].speed / 1000,
+                socket: 'Unknown'
+            },
+            memory: {
+                total: os.totalmem(),
+                free: os.freemem(),
+                used: os.totalmem() - os.freemem(),
+                active: os.totalmem() - os.freemem(),
+                available: os.freemem()
+            },
+            graphics: {
+                controllers: [],
+                displays: []
+            },
+            platform: os.platform(),
+            arch: os.arch(),
+            release: os.release()
+        };
+    }
+});
+
+// Update cache with new Pinokio info
+ipcMain.handle('update-pinokio-cache', (event, info) => {
+    appConfig.cache.pinokioVersion = info.version;
+    appConfig.cache.lastUpdate = Date.now();
+    saveConfig();
+    return appConfig;
+});
+
+// Update storage cache
+ipcMain.handle('update-storage-cache', (event, storageInfo) => {
+    appConfig.cache.lastStorageCalculation = storageInfo;
+    appConfig.cache.lastStorageUpdate = Date.now();
+    saveConfig();
+    return appConfig;
+});
+
+// Update system info cache
+ipcMain.handle('update-system-cache', (event, sysInfo) => {
+    appConfig.cache.systemInfo = sysInfo;
+    appConfig.cache.lastUpdate = Date.now();
+    saveConfig();
+    return appConfig;
 }); 

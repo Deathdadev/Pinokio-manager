@@ -117,30 +117,245 @@ function formatMemoryUsage(used, total) {
     return `${formatBytes(used)} / ${formatBytes(total)} (${percentage}%)`;
 }
 
+// App initialization
+let appConfig = null;
+
+async function initializeApp() {
+    try {
+        const config = await ipcRenderer.invoke('get-app-config');
+        appConfig = config;
+        
+        if (!config.initialized) {
+            document.getElementById('initOverlay').classList.add('active');
+        }
+    } catch (error) {
+        console.error('Error loading app config:', error);
+    }
+}
+
+// Handle initialization form
+document.getElementById('initializeApp').addEventListener('click', async () => {
+    const pinokioPath = document.getElementById('pinokioPath').value;
+    
+    try {
+        const result = await ipcRenderer.invoke('initialize-app', {
+            pinokioPath
+        });
+        
+        if (result.success) {
+            appConfig = result.config;
+            document.getElementById('initOverlay').classList.remove('active');
+            updateAllInfo();
+        } else {
+            alert('Failed to initialize: ' + result.error);
+        }
+    } catch (error) {
+        alert('Failed to initialize: ' + error.message);
+    }
+});
+
+document.getElementById('browsePinokioPath').addEventListener('click', async () => {
+    const result = await ipcRenderer.invoke('browse-directory');
+    if (result) {
+        document.getElementById('pinokioPath').value = result;
+    }
+});
+
+// Update system information without relying on Pinokio
+async function updateSystemInfo() {
+    try {
+        // Get system info directly from OS
+        const sysInfo = await ipcRenderer.invoke('get-system-info');
+        await ipcRenderer.invoke('update-system-cache', sysInfo);
+        
+        // Update basic information
+        document.getElementById('platform').textContent = sysInfo.platform;
+        document.getElementById('arch').textContent = sysInfo.arch;
+        
+        // Try to get Pinokio-specific info
+        try {
+            const response = await fetch('http://localhost/pinokio/info');
+            const pinokioInfo = await response.json();
+            document.getElementById('pinokioVersion').textContent = pinokioInfo.version.pinokio;
+            document.getElementById('installPath').textContent = pinokioInfo.home;
+            
+            // Cache the Pinokio info
+            await ipcRenderer.invoke('update-pinokio-cache', {
+                version: pinokioInfo.version.pinokio,
+                home: pinokioInfo.home
+            });
+            
+            // Remove warning if it exists
+            const warningDiv = document.querySelector('.pinokio-warning');
+            if (warningDiv) {
+                warningDiv.remove();
+            }
+        } catch (error) {
+            // Get the cached values from config
+            const config = await ipcRenderer.invoke('get-app-config');
+            
+            // Display cached values with indicator
+            document.getElementById('pinokioVersion').textContent = 
+                `${config.cache.pinokioVersion || 'Not Available'} ${config.cache.pinokioVersion ? '(cached)' : ''}`;
+            document.getElementById('installPath').textContent = 
+                `${config.pinokioPath} (cached)`;
+            
+            // Show warning about Pinokio not running
+            showPinokioOfflineWarning();
+        }
+        
+        // Update all hardware info
+        updateCPUInfo(sysInfo.cpu);
+        updateMemoryInfo(sysInfo.memory);
+        updateGPUInfo(sysInfo.graphics);
+        updateDisplayInfo(sysInfo.graphics);
+        
+    } catch (error) {
+        console.error('Error updating system info:', error);
+    }
+}
+
+function showPinokioOfflineWarning() {
+    let warningDiv = document.querySelector('.pinokio-warning');
+    if (!warningDiv) {
+        warningDiv = document.createElement('div');
+        warningDiv.className = 'warning-box pinokio-warning';
+        document.querySelector('#overview .card').insertBefore(warningDiv, document.querySelector('#overview .info-grid'));
+    }
+    warningDiv.innerHTML = `
+        <h3>⚠️ Pinokio Not Running</h3>
+        <p>Some information may not be up to date because Pinokio is not running. You can:</p>
+        <ol style="margin: 12px 0; padding-left: 24px;">
+            <li style="margin-bottom: 8px;">Launch Pinokio to get real-time information</li>
+            <li style="margin-bottom: 8px;">Continue using the app with potentially outdated information</li>
+        </ol>
+        <button class="action-button" onclick="document.getElementById('launchPinokioBtn').click()">Launch Pinokio</button>
+    `;
+}
+
+// Function to display cached storage values
+async function displayCachedStorage() {
+    const storageInfo = document.getElementById('storageInfo');
+    const config = await ipcRenderer.invoke('get-app-config');
+    const cachedStorage = config.cache.lastStorageCalculation;
+    
+    if (cachedStorage) {
+        let html = `
+            <div class="storage-overview">
+                <div class="info-item total-storage">
+                    <div class="info-label">Total Storage Usage (cached)</div>
+                    <div class="info-value">${formatBytes(cachedStorage.totalSize)} / ${formatBytes(cachedStorage.systemDriveSize.total)} 
+                        (${((cachedStorage.totalSize / cachedStorage.systemDriveSize.total) * 100).toFixed(1)}%)</div>
+                    <div class="storage-bar">
+                        <div class="storage-bar-fill" style="width: ${((cachedStorage.totalSize / cachedStorage.systemDriveSize.total) * 100)}%"></div>
+                    </div>
+                    <small>Last updated: ${new Date(cachedStorage.timestamp).toLocaleString()}</small>
+                </div>
+            </div>
+            <div class="storage-folders">
+        `;
+
+        // Add folder breakdown from cache
+        if (cachedStorage.folderSizes) {
+            cachedStorage.folderSizes.forEach(folder => {
+                html += `
+                    <div class="folder-item">
+                        <div class="folder-content">
+                            <div class="folder-info">
+                                <div class="folder-name">
+                                    <span class="folder-icon">${folder.icon}</span>
+                                    ${folder.name}
+                                </div>
+                                <div class="folder-size">${formatBytes(folder.size)} (${folder.percentage}%)</div>
+                            </div>
+                            ${folder.subDirs ? `
+                                <button class="expand-button" data-folder="api">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                            ` : ''}
+                        </div>
+                        ${folder.subDirs ? `
+                            <div class="apps-list" data-folder="api">
+                                ${folder.subDirs.map(subDir => `
+                                    <div class="app-item">
+                                        <div class="app-content">
+                                            <div class="app-info">
+                                                <div class="app-name">
+                                                    <span class="folder-icon">📦</span>
+                                                    ${subDir.name}
+                                                </div>
+                                                <div class="app-size">${formatBytes(subDir.size)} (${subDir.percentage}%)</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+        }
+
+        html += `</div>`;
+        storageInfo.innerHTML = html;
+
+        // Add click handlers for expand buttons
+        document.querySelectorAll('[data-folder="api"].expand-button').forEach(btn => {
+            btn.onclick = () => {
+                const appsList = btn.closest('.folder-item').querySelector('.apps-list');
+                const isExpanded = appsList.classList.toggle('expanded');
+                btn.classList.toggle('expanded', isExpanded);
+            };
+        });
+    }
+}
+
 // Update the storage information section
-async function updateStorageInfo() {
+async function updateStorageInfo(skipCachedDisplay = false) {
     const storageInfo = document.getElementById('storageInfo');
     const recalculateBtn = document.getElementById('recalculateStorage');
+    
+    if (!appConfig?.initialized) {
+        showNotInitializedWarning(storageInfo);
+        return;
+    }
+
+    // Show cached values first if this isn't triggered by the recalculate button
+    if (!skipCachedDisplay) {
+        await displayCachedStorage();
+    }
     
     try {
         recalculateBtn.classList.add('loading');
         recalculateBtn.disabled = true;
         recalculateBtn.textContent = 'Calculating...';
 
-        const response = await fetch('http://localhost/pinokio/info');
-        const data = await response.json();
-        const pinokioPath = data.home;
+        let pinokioPath = appConfig.pinokioPath;
+        let usingCachedPath = true;
+        
+        // Try to get updated path from Pinokio if running
+        try {
+            const response = await fetch('http://localhost/pinokio/info');
+            const data = await response.json();
+            pinokioPath = data.home;
+            usingCachedPath = false;
+        } catch (error) {
+            // Show warning that we're using saved path
+            showPinokioOfflineWarning();
+        }
         
         // Get system drive info
         const systemDriveSize = await ipcRenderer.invoke('get-drive-info', pinokioPath.split(':')[0]);
         
-        // Define base folders to check
+        // Define base folders to check with icons
         const folders = [
-            { name: 'Cache', path: '\\cache' },
-            { name: 'Bin', path: '\\bin' },
-            { name: 'Drive', path: '\\drive' },
-            { name: 'API', path: '\\api' },
-            { name: 'Logs', path: '\\logs' }
+            { name: 'Cache', path: '\\cache', icon: '📁' },
+            { name: 'Bin', path: '\\bin', icon: '🗑️' },
+            { name: 'Drive', path: '\\drive', icon: '💾' },
+            { name: 'API', path: '\\api', icon: '🔌' },
+            { name: 'Logs', path: '\\logs', icon: '📝' }
         ];
 
         // Get total size of Pinokio directory and individual folders
@@ -182,15 +397,26 @@ async function updateStorageInfo() {
             })
         );
 
+        // Cache the storage calculation results
+        await ipcRenderer.invoke('update-storage-cache', {
+            totalSize: pinokioSize,
+            systemDriveSize: systemDriveSize,
+            folderSizes,
+            timestamp: Date.now()
+        });
+
         // Build the HTML
         let html = `
-            <div class="info-item">
-                <div class="info-label">Total Storage Usage</div>
-                <div class="info-value">${formatBytes(pinokioSize)} / ${formatBytes(systemDriveSize.total)} (${usagePercentage.toFixed(1)}%)</div>
-                <div class="storage-bar">
-                    <div class="storage-bar-fill" style="width: ${usagePercentage}%"></div>
+            <div class="storage-overview">
+                <div class="info-item total-storage">
+                    <div class="info-label">Total Storage Usage ${usingCachedPath ? '(using cached path)' : ''}</div>
+                    <div class="info-value">${formatBytes(pinokioSize)} / ${formatBytes(systemDriveSize.total)} (${usagePercentage.toFixed(1)}%)</div>
+                    <div class="storage-bar">
+                        <div class="storage-bar-fill" style="width: ${usagePercentage}%"></div>
+                    </div>
                 </div>
             </div>
+            <div class="storage-folders">
         `;
 
         // Add folder breakdown
@@ -199,7 +425,10 @@ async function updateStorageInfo() {
                 <div class="folder-item">
                     <div class="folder-content">
                         <div class="folder-info">
-                            <div class="folder-name">${folder.name}</div>
+                            <div class="folder-name">
+                                <span class="folder-icon">${folder.icon}</span>
+                                ${folder.name}
+                            </div>
                             <div class="folder-size">${formatBytes(folder.size)} (${folder.percentage}%)</div>
                         </div>
                         ${folder.subDirs ? `
@@ -216,7 +445,10 @@ async function updateStorageInfo() {
                                 <div class="app-item">
                                     <div class="app-content">
                                         <div class="app-info">
-                                            <div class="app-name">└─ ${subDir.name}</div>
+                                            <div class="app-name">
+                                                <span class="folder-icon">📦</span>
+                                                ${subDir.name}
+                                            </div>
                                             <div class="app-size">${formatBytes(subDir.size)} (${subDir.percentage}%)</div>
                                         </div>
                                     </div>
@@ -227,6 +459,10 @@ async function updateStorageInfo() {
                 </div>
             `;
         });
+
+        html += `
+            </div>
+        `;
 
         storageInfo.innerHTML = html;
 
@@ -239,25 +475,74 @@ async function updateStorageInfo() {
             };
         });
 
-        recalculateBtn.classList.remove('loading');
-        recalculateBtn.disabled = false;
-        recalculateBtn.textContent = 'Recalculate';
+        // Remove any existing warning
+        const warningDiv = document.querySelector('#storage .warning-box');
+        if (warningDiv) {
+            warningDiv.remove();
+        }
 
     } catch (error) {
         console.error('Error updating storage info:', error);
-        storageInfo.innerHTML = `
-            <div class="info-item">
-                <div class="info-value">Error calculating storage usage</div>
-                <div class="storage-bar">
-                    <div class="storage-bar-fill" style="width: 0%"></div>
-                </div>
-            </div>
-        `;
         
+        if (!skipCachedDisplay) {
+            // Only show cached values if we haven't already
+            await displayCachedStorage();
+        }
+        
+        let warningDiv = document.querySelector('#storage .warning-box');
+        if (!warningDiv) {
+            warningDiv = document.createElement('div');
+            warningDiv.className = 'warning-box';
+            document.querySelector('#storage .card').insertBefore(warningDiv, storageInfo);
+        }
+        
+        if (error.message === 'Failed to fetch' || error.message.includes('ECONNREFUSED')) {
+            warningDiv.innerHTML = `
+                <h3>⚠️ Using Saved Path</h3>
+                <p>Calculating storage based on saved Pinokio path: ${appConfig.pinokioPath}</p>
+                <p>Note: This information might not be accurate if Pinokio's location has changed.</p>
+            `;
+        } else {
+            warningDiv.innerHTML = `
+                <h3>⚠️ Error Calculating Storage</h3>
+                <p>An error occurred while calculating storage usage:</p>
+                <div class="code-block">${error.message}</div>
+            `;
+        }
+    } finally {
         recalculateBtn.classList.remove('loading');
         recalculateBtn.disabled = false;
         recalculateBtn.textContent = 'Recalculate';
     }
+}
+
+function showNotInitializedWarning(container) {
+    const warningDiv = document.createElement('div');
+    warningDiv.className = 'warning-box not-initialized';
+    warningDiv.innerHTML = `
+        <h3>⚠️ App Not Initialized</h3>
+        <p>Please initialize the app with your Pinokio installation path to use this feature.</p>
+        <button class="action-button" onclick="document.getElementById('initOverlay').classList.add('active')">Initialize Now</button>
+    `;
+    
+    container.parentElement.insertBefore(warningDiv, container);
+    container.innerHTML = `
+        <div class="info-item">
+            <div class="info-value">Initialize app to view storage information</div>
+            <div class="storage-bar">
+                <div class="storage-bar-fill" style="width: 0%"></div>
+            </div>
+        </div>
+    `;
+}
+
+// Function to update all information
+async function updateAllInfo() {
+    await updateSystemInfo();
+    loadUpdates();
+    // Show cached storage values immediately and then recalculate
+    await displayCachedStorage();
+    updateStorageInfo();
 }
 
 // Update memory information periodically
@@ -282,82 +567,31 @@ function updateMemoryInfo() {
         .catch(error => console.error('Error updating memory info:', error));
 }
 
-// Update the updateSystemInfo function to not include storage updates
-async function updateSystemInfo() {
-    try {
-        const response = await fetch('http://localhost/pinokio/info');
-        const data = await response.json();
-
-        // Remove warning message if it exists since Pinokio is now running
-        const warningDiv = document.querySelector('.pinokio-warning');
-        if (warningDiv) {
-            warningDiv.remove();
-        }
-
-        // Update basic information
-        updateBasicInfo(data);
-        updateCPUInfo(data);
-        updateGPUInfo(data);
-        updateDisplayInfo(data);
-    } catch (error) {
-        // Show a user-friendly message when Pinokio is not running
-        document.getElementById('pinokioVersion').textContent = 'Not Available';
-        document.getElementById('platform').textContent = 'Not Available';
-        document.getElementById('arch').textContent = 'Not Available';
-        document.getElementById('installPath').textContent = 'Not Available';
-
-        // Create or update warning message
-        let warningDiv = document.querySelector('.pinokio-warning');
-        if (!warningDiv) {
-            warningDiv = document.createElement('div');
-            warningDiv.className = 'warning-box pinokio-warning';
-            document.querySelector('#overview .card').insertBefore(warningDiv, document.querySelector('#overview .info-grid'));
-        }
-        warningDiv.innerHTML = `
-            <h3>⚠️ Pinokio Not Running</h3>
-            <p>Pinokio needs to be running to display system information. Please:</p>
-            <ol>
-                <li>Launch Pinokio using the button below</li>
-                <li>Wait a few seconds for it to start</li>
-                <li>The information will update automatically</li>
-            </ol>
-            <button class="action-button" onclick="document.getElementById('launchPinokioBtn').click()">Launch Pinokio</button>
-        `;
-    }
-}
-
-function updateBasicInfo(data) {
-    document.getElementById('pinokioVersion').textContent = data.version.pinokio;
-    document.getElementById('platform').textContent = data.platform;
-    document.getElementById('arch').textContent = data.arch;
-    document.getElementById('installPath').textContent = data.home;
-}
-
-function updateCPUInfo(data) {
-    const cpuInfo = document.getElementById('cpuInfo');
-    cpuInfo.innerHTML = `
+function updateCPUInfo(cpuInfo) {
+    const cpuInfoElement = document.getElementById('cpuInfo');
+    cpuInfoElement.innerHTML = `
         <div class="info-item">
             <div class="info-label">Processor</div>
-            <div class="info-value">${data.cpu.brand}</div>
+            <div class="info-value">${cpuInfo.brand}</div>
         </div>
         <div class="info-item">
             <div class="info-label">Cores</div>
-            <div class="info-value">${data.cpu.cores} (${data.cpu.physicalCores} Physical)</div>
+            <div class="info-value">${cpuInfo.cores} (${cpuInfo.physicalCores} Physical)</div>
         </div>
         <div class="info-item">
             <div class="info-label">Speed</div>
-            <div class="info-value">${data.cpu.speed} GHz</div>
+            <div class="info-value">${cpuInfo.speed} GHz</div>
         </div>
         <div class="info-item">
             <div class="info-label">Socket</div>
-            <div class="info-value">${data.cpu.socket}</div>
+            <div class="info-value">${cpuInfo.socket}</div>
         </div>
     `;
 }
 
-function updateGPUInfo(data) {
-    const gpuInfo = document.getElementById('gpuInfo');
-    gpuInfo.innerHTML = data.graphics.controllers.map(gpu => `
+function updateGPUInfo(gpuInfo) {
+    const gpuInfoElement = document.getElementById('gpuInfo');
+    gpuInfoElement.innerHTML = gpuInfo.controllers.map(gpu => `
         <div class="gpu-card">
             <div class="gpu-icon">GPU</div>
             <div>
@@ -368,9 +602,9 @@ function updateGPUInfo(data) {
     `).join('');
 }
 
-function updateDisplayInfo(data) {
-    const displayInfo = document.getElementById('displayInfo');
-    displayInfo.innerHTML = data.graphics.displays.map(display => `
+function updateDisplayInfo(displayInfo) {
+    const displayInfoElement = document.getElementById('displayInfo');
+    displayInfoElement.innerHTML = displayInfo.displays.map(display => `
         <div class="info-item">
             <div class="info-label">${display.model}</div>
             <div class="info-value">
@@ -721,11 +955,18 @@ async function runPeerCheck() {
 // Add the click handler for the run button
 document.getElementById('runPeerCheck').addEventListener('click', runPeerCheck);
 
+// Add event listener for recalculate button
+document.getElementById('recalculateStorage').addEventListener('click', () => {
+    updateStorageInfo(true); // Skip showing cached values when manually recalculating
+});
+
 // Initialize the app
-updateSystemInfo();
-loadUpdates();
-updateStorageInfo(); // Initial storage update
+initializeApp();
+updateAllInfo();
 
 // Set up periodic updates with different intervals
-setInterval(updateMemoryInfo, 1000); // Update memory every second
-setInterval(updateSystemInfo, 5000); // Update system info every 5 seconds
+setInterval(() => {
+    if (appConfig?.initialized) {
+        updateSystemInfo();
+    }
+}, 5000);

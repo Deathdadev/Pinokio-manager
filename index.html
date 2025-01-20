@@ -401,128 +401,137 @@
 
         /* Storage Section Styles */
         .storage-overview {
-            margin-bottom: 16px;
+            margin-bottom: 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
         }
 
-        .storage-details {
-            margin-top: 8px;
-            font-size: 12px;
-            color: var(--label-color);
-            text-align: left;
-        }
-
-        .folder-content,
-        .app-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-        }
-
-        .folder-info,
-        .app-info,
-        .subdir-info {
-            flex: 1;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-right: 12px;
-        }
-
-        .folder-name,
-        .app-name,
-        .subdir-name {
-            color: var(--text-color);
-            font-size: 14px;
-        }
-
-        .folder-size,
-        .app-size,
-        .subdir-size {
-            color: var(--label-color);
-            font-size: 12px;
-            text-align: right;
-            min-width: 120px;
-        }
-
-        .expand-button {
-            background: none;
+        .storage-overview .total-storage {
+            background: transparent;
             border: none;
-            padding: 8px;
-            cursor: pointer;
-            color: var(--text-color);
+            padding: 0;
+            margin: 0;
+        }
+
+        .storage-folders {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-            border-radius: 4px;
-            width: 32px;
-            height: 32px;
-        }
-
-        .expand-button:hover {
-            background: var(--hover-bg);
-            color: var(--primary-color);
-        }
-
-        .expand-button svg {
-            width: 16px;
-            height: 16px;
-            transition: transform 0.2s ease;
-        }
-
-        .expand-button.expanded svg {
-            transform: rotate(180deg);
-        }
-
-        .apps-list,
-        .subdirs-list {
-            display: none;
-            margin-left: 24px;
-            padding-left: 16px;
-            border-left: 1px solid var(--border-color);
-        }
-
-        .apps-list.expanded,
-        .subdirs-list.expanded {
-            display: block;
-        }
-
-        .app-item,
-        .subdir-item {
-            margin: 4px 0;
+            flex-direction: column;
+            gap: 12px;
         }
 
         .folder-item {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            margin-bottom: 4px;
+            border-radius: 12px;
             overflow: hidden;
+            transition: all 0.2s ease;
         }
 
         .folder-item:hover {
             border-color: var(--primary-color);
+            transform: translateY(-1px);
+            box-shadow: var(--card-shadow);
         }
 
-        /* Loading state styles */
-        .storage-item.loading .storage-overview {
-            opacity: 0.7;
+        .folder-content {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .storage-item.loading .storage-details {
-            text-align: left;
-            opacity: 0.7;
+        .folder-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
         }
 
-        .loading-spinner {
-            width: 40px;
-            height: 40px;
-            margin: 20px auto;
-            border: 3px solid var(--border-color);
-            border-radius: 50%;
-            border-top-color: var(--primary-color);
-            animation: spin 1s linear infinite;
+        .folder-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .folder-icon {
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .folder-size {
+            color: var(--label-color);
+            font-size: 14px;
+        }
+
+        .apps-list {
+            display: none;
+            margin: 0;
+            padding: 8px 16px;
+            background: color-mix(in srgb, var(--card-bg) 95%, var(--primary-color));
+            border-top: 1px solid var(--border-color);
+        }
+
+        .apps-list.expanded {
+            display: block;
+        }
+
+        .app-item {
+            margin: 8px 0;
+        }
+
+        .app-content {
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .app-content:hover {
+            background: color-mix(in srgb, var(--card-bg) 90%, var(--primary-color));
+        }
+
+        .app-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-color);
+            font-size: 14px;
+        }
+
+        .app-size {
+            color: var(--label-color);
+            font-size: 13px;
+        }
+
+        .storage-bar {
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+
+        .storage-bar-fill {
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        #recalculateStorage {
+            margin-top: 16px;
         }
 
         /* Dark mode styles for markdown */
@@ -890,9 +899,10 @@
             margin-bottom: 16px;
         }
 
-        .warning-box ul {
-            margin: 0;
+        .warning-box ol, .warning-box ul {
+            margin: 12px 0;
             padding-left: 24px;
+            list-style-position: outside;
         }
 
         .warning-box li {
@@ -900,6 +910,31 @@
             font-size: 14px;
             margin-bottom: 8px;
             line-height: 1.5;
+        }
+
+        .warning-box .action-button {
+            margin-top: 16px;
+        }
+
+        /* Remove any inline styles from warning boxes */
+        .warning-box ol, .warning-box ul, .warning-box li {
+            margin: 12px 0 !important;
+            padding-left: 24px !important;
+        }
+
+        .warning-box li {
+            margin-bottom: 8px !important;
+        }
+
+        /* Specific warning box types */
+        .warning-box.not-initialized {
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
+        }
+
+        .warning-box.pinokio-warning {
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
         }
 
         .action-group {
@@ -1047,8 +1082,8 @@
             margin-bottom: 16px;
         }
 
-        .warning-box ul {
-            margin: 0;
+        .warning-box ol, .warning-box ul {
+            margin: 12px 0;
             padding-left: 24px;
         }
 
@@ -1057,6 +1092,10 @@
             font-size: 14px;
             margin-bottom: 8px;
             line-height: 1.5;
+        }
+
+        .warning-box .action-button {
+            margin-top: 16px;
         }
 
         /* Update code and path styling */
@@ -1281,6 +1320,88 @@
             animation: spin 1s linear infinite;
         }
 
+        .init-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .init-overlay.active {
+            display: flex;
+        }
+
+        .init-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .init-card h2 {
+            margin-bottom: 16px;
+            color: var(--text-color);
+        }
+
+        .init-form {
+            margin-top: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 4px;
+            color: var(--label-color);
+            font-size: 12px;
+        }
+
+        .path-input {
+            display: flex;
+            gap: 8px;
+        }
+
+        .path-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        .path-input input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+
+        .warning-box.not-initialized {
+            background: var(--warning-bg);
+            border-color: var(--warning-border);
+        }
+
+        .warning-box.pinokio-offline {
+            background: rgba(var(--warning-color-rgb), 0.1);
+            border-color: rgba(var(--warning-color-rgb), 0.3);
+        }
+
     </style>
     <script>
         // Add scroll detection
@@ -1322,6 +1443,25 @@
     </div>
 
     <div class="app-container">
+        <!-- Add initialization overlay -->
+        <div id="initOverlay" class="init-overlay">
+            <div class="init-card">
+                <h2>Welcome to Pinokio Manager</h2>
+                <p>Please configure your Pinokio installation to get started.</p>
+                <div class="init-form">
+                    <div class="form-group">
+                        <label for="pinokioPath">Pinokio Installation Path</label>
+                        <div class="path-input">
+                            <input type="text" id="pinokioPath" placeholder="C:\pinokio" value="C:\pinokio">
+                            <button class="action-button" id="browsePinokioPath">Browse</button>
+                        </div>
+                        <small>This is where Pinokio stores its data, not the executable location</small>
+                    </div>
+                    <button class="action-button" id="initializeApp">Initialize</button>
+                </div>
+            </div>
+        </div>
+        
         <div class="sidebar">
             <div class="nav-item active" data-view="overview">
                 <span>Overview</span>
