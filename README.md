@@ -38,7 +38,7 @@ Planned:
 
 ## Disclaimer
 
-This project is a community-driven effort to enhance the Pinokio experience. Please note that this project may be archived if and when the official Pinokio repository implements similar features. We recommend checking the official [Pinokio repository](https://github.com/cocktailpeanut/pinokio) for updates and features that might make this manager redundant.
+This project is a community-driven effort to enhance the Pinokio experience. Please note that this project may be archived if and when the official Pinokio repository implements similar features. We recommend checking the official [Pinokio repository](https://github.com/pinokiocomputer/pinokio) for updates and features that might make this manager redundant.
 
 ## Installation
 
