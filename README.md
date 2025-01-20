@@ -2,6 +2,8 @@
 
 A modern, cross-platform desktop application for managing Pinokio installations, built with Electron.
 
+## Demo
+
 [![Pinokio Manager Demo](https://img.youtube.com/vi/33R4o87nSRk/maxresdefault.jpg)](https://youtu.be/33R4o87nSRk)
 
 ## Features
@@ -13,6 +15,30 @@ A modern, cross-platform desktop application for managing Pinokio installations,
 - 🖥️ System information display
 - 🔍 Peer directory checker
 - 🌓 Dark/Light theme support
+
+## Features Checklist
+
+Current:
+- [x] Windows Support
+- [x] System Resource Monitoring
+- [x] Storage Analysis
+- [x] Version Management
+- [x] Dark/Light Theme
+- [x] Peer Directory Checking
+
+Planned:
+- [ ] Linux Support
+- [ ] MacOS Support
+- [ ] Auto-Update Feature
+- [ ] Multiple Instance Management
+- [ ] Backup and Restore
+- [ ] Custom Theme Support
+- [ ] Plugin System
+- [ ] Remote Management
+
+## Disclaimer
+
+This project is a community-driven effort to enhance the Pinokio experience. Please note that this project may be archived if and when the official Pinokio repository implements similar features. We recommend checking the official [Pinokio repository](https://github.com/cocktailpeanut/pinokio) for updates and features that might make this manager redundant.
 
 ## Installation
 
