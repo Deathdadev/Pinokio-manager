@@ -242,23 +242,76 @@ ipcMain.handle('launch-pinokio', async () => {
 
 // Directory size calculation
 async function getDirectorySize(dirPath) {
-    let totalSize = 0;
-    
-    async function calculateSize(itemPath) {
-        const stats = await fs.promises.stat(itemPath);
-        
-        if (stats.isFile()) {
-            totalSize += stats.size;
-        } else if (stats.isDirectory()) {
-            const items = await fs.promises.readdir(itemPath);
-            for (const item of items) {
-                await calculateSize(path.join(itemPath, item));
-            }
+    // Try to use native OS commands first for better performance
+    if (process.platform === 'win32') {
+        try {
+            const { execFile } = require('child_process');
+            const util = require('util');
+            const execFileAsync = util.promisify(execFile);
+            
+            // Use PowerShell to calculate directory size (much faster than Node.js recursive approach)
+            const { stdout } = await execFileAsync('powershell', [
+                '-NoProfile',
+                '-Command',
+                `(Get-ChildItem -Path '${dirPath}' -Recurse -Force | Measure-Object -Property Length -Sum).Sum`
+            ]);
+            
+            const size = parseInt(stdout.trim()) || 0;
+            return size;
+        } catch (error) {
+            // Fallback to Node.js implementation if PowerShell fails
+            console.warn('PowerShell size calculation failed, falling back to Node.js:', error);
+        }
+    } else if (process.platform === 'darwin' || process.platform === 'linux') {
+        try {
+            const { execFile } = require('child_process');
+            const util = require('util');
+            const execFileAsync = util.promisify(execFile);
+            
+            // Use du command on Unix-like systems
+            const { stdout } = await execFileAsync('du', ['-sb', dirPath]);
+            const size = parseInt(stdout.split('\t')[0]);
+            return size;
+        } catch (error) {
+            // Fallback to Node.js implementation if du fails
+            console.warn('du size calculation failed, falling back to Node.js:', error);
         }
     }
     
+    // Fallback to an optimized Node.js implementation
+    let totalSize = 0;
+    const stack = [dirPath];
+    
     try {
-        await calculateSize(dirPath);
+        while (stack.length > 0) {
+            const currentPath = stack.pop();
+            const items = await fs.promises.readdir(currentPath, { withFileTypes: true });
+            
+            // Process items in batches for better performance
+            const batchSize = 100;
+            for (let i = 0; i < items.length; i += batchSize) {
+                const batch = items.slice(i, i + batchSize);
+                
+                // Process files and directories in parallel within each batch
+                const promises = batch.map(async item => {
+                    const fullPath = path.join(currentPath, item.name);
+                    
+                    if (item.isSymbolicLink()) {
+                        return; // Skip symbolic links
+                    }
+                    
+                    if (item.isFile()) {
+                        const stats = await fs.promises.stat(fullPath);
+                        totalSize += stats.size;
+                    } else if (item.isDirectory()) {
+                        stack.push(fullPath);
+                    }
+                });
+                
+                await Promise.all(promises);
+            }
+        }
+        
         return totalSize;
     } catch (error) {
         console.error('Error calculating directory size:', error);

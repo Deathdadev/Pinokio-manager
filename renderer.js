@@ -38,60 +38,292 @@ navItems.forEach(item => {
     });
 });
 
+// Helper functions for button status
+function updateButtonStatus(button, text) {
+    const statusText = button.querySelector('.status-text');
+    if (statusText) {
+        statusText.textContent = text;
+        button.classList.remove('return-to-center');
+        button.classList.add('has-status');
+        
+        // For quick action buttons
+        if (button.classList.contains('quick-action-button')) {
+            const contentWrapper = button.querySelector('.content-wrapper');
+            if (contentWrapper) {
+                contentWrapper.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+            }
+        }
+        // For install buttons
+        else if (button.classList.contains('install-button')) {
+            const buttonText = button.querySelector('.button-text');
+            if (buttonText) {
+                buttonText.style.opacity = '0';
+            }
+        }
+    }
+}
+
+function clearButtonStatus(button) {
+    const statusText = button.querySelector('.status-text');
+    if (statusText) {
+        button.classList.add('return-to-center');
+        button.classList.remove('has-status');
+        
+        // For quick action buttons
+        if (button.classList.contains('quick-action-button')) {
+            // Wait for transition to complete before clearing text
+            setTimeout(() => {
+                statusText.textContent = '';
+                button.classList.remove('return-to-center');
+            }, 300);
+        }
+        // For install buttons
+        else if (button.classList.contains('install-button')) {
+            const buttonText = button.querySelector('.button-text');
+            if (buttonText) {
+                buttonText.style.opacity = '1';
+                setTimeout(() => {
+                    statusText.textContent = '';
+                }, 300);
+            }
+        }
+    }
+}
+
+function setButtonLoading(button, isLoading) {
+    if (isLoading) {
+        button.classList.add('loading');
+        button.disabled = true;
+        
+        // For quick action buttons
+        if (button.classList.contains('quick-action-button')) {
+            const contentWrapper = button.querySelector('.content-wrapper');
+            if (contentWrapper) {
+                contentWrapper.style.opacity = '0.5';
+            }
+        }
+        // For install buttons
+        else if (button.classList.contains('install-button')) {
+            const buttonText = button.querySelector('.button-text');
+            if (buttonText) {
+                buttonText.style.opacity = '0';
+            }
+        }
+    } else {
+        button.classList.remove('loading');
+        button.disabled = false;
+        
+        // For quick action buttons
+        if (button.classList.contains('quick-action-button')) {
+            const contentWrapper = button.querySelector('.content-wrapper');
+            if (contentWrapper) {
+                contentWrapper.style.opacity = '1';
+            }
+        }
+        // For install buttons
+        else if (button.classList.contains('install-button')) {
+            const buttonText = button.querySelector('.button-text');
+            if (buttonText) {
+                buttonText.style.opacity = '1';
+            }
+        }
+    }
+}
+
+// Helper function to wait for Pinokio to be ready
+async function waitForPinokio(maxAttempts = 30) {
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            const response = await fetch('http://localhost/pinokio/info');
+            if (!response.ok) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+            }
+            const data = await response.json();
+            if (!data || !data.version || !data.version.pinokio) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                continue;
+            }
+            const version = data.version.pinokio;
+            const versionParts = version.split('.');
+            if (versionParts.length === 3) {
+                const versionNum = parseInt(versionParts[0]) * 1000000 + 
+                                 parseInt(versionParts[1]) * 1000 + 
+                                 parseInt(versionParts[2]);
+                if (versionNum >= 3002200) {
+                    return { success: true, version };
+                }
+                return { success: false, error: `Version 3.2.200 or higher required (current: ${version})` };
+            }
+            return { success: false, error: 'Invalid version format' };
+        } catch (error) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+    return { success: false, error: 'Timed out waiting for Pinokio' };
+}
+
 // Quick action buttons
 document.getElementById('launchPinokioBtn').addEventListener('click', async () => {
+    const button = document.getElementById('launchPinokioBtn');
     try {
+        setButtonLoading(button, true);
+        updateButtonStatus(button, 'Launching Pinokio...');
+        
         await ipcRenderer.invoke('launch-pinokio');
+        
+        let attempts = 0;
+        const maxAttempts = 30;
+        
+        while (attempts < maxAttempts) {
+            try {
+                updateButtonStatus(button, 'Waiting for Pinokio to start...');
+                const pinokioStatus = await waitForPinokio(1);
+                if (pinokioStatus.success) {
+                    updateButtonStatus(button, `Pinokio ${pinokioStatus.version} is now running!`);
+                    setButtonLoading(button, false);
+                    setTimeout(() => {
+                        clearButtonStatus(button);
+                        window.location.reload();
+                    }, 2000);
+                    return;
+                }
+            } catch (error) {
+                // Keep waiting
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
+        }
+        throw new Error('Timed out waiting for Pinokio to start');
     } catch (error) {
-        alert('Failed to launch Pinokio: ' + error.message);
+        updateButtonStatus(button, 'Failed to launch: ' + error.message);
+        setButtonLoading(button, false);
+        setTimeout(() => {
+            clearButtonStatus(button);
+        }, 3000);
     }
 });
 
 document.getElementById('quickUpdateBtn').addEventListener('click', async () => {
+    const button = document.getElementById('quickUpdateBtn');
     try {
+        button.classList.add('loading');
+        updateButtonStatus(button, 'Checking latest stable version...');
+        
         const latestRelease = await ipcRenderer.invoke('get-latest-release');
         const systemArch = await ipcRenderer.invoke('get-system-arch');
-        const asset = latestRelease.assets.find(a => a.name.includes(systemArch));
         
-        if (asset) {
-            await ipcRenderer.invoke('install-version', {
-                url: asset.browser_download_url,
-                filename: asset.name
-            });
-            alert('Update completed successfully!');
+        updateButtonStatus(button, `Found version ${latestRelease.tag_name}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const asset = latestRelease.assets.find(a => a.name.includes(systemArch));
+        if (!asset) {
+            throw new Error('No compatible version found');
+        }
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 100) {
+                clearInterval(progressInterval);
+                progress = 100;
+            }
+            updateButtonStatus(button, `Downloading ${latestRelease.tag_name} (${Math.floor(progress)}%)`);
+        }, 500);
+        
+        await ipcRenderer.invoke('install-version', {
+            url: asset.browser_download_url,
+            filename: asset.name
+        });
+        
+        clearInterval(progressInterval);
+        updateButtonStatus(button, 'Running installer...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        updateButtonStatus(button, 'Waiting for Pinokio to restart...');
+        const pinokioStatus = await waitForPinokio();
+        
+        if (pinokioStatus.success) {
+            updateButtonStatus(button, 'Update completed successfully!');
+            button.classList.remove('loading');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            clearButtonStatus(button);
+            // Wait for status to clear before reloading
+            await new Promise(resolve => setTimeout(resolve, 300));
             window.location.reload();
         } else {
-            alert('No compatible version found');
+            throw new Error(pinokioStatus.error);
         }
     } catch (error) {
-        alert('Update failed: ' + error.message);
+        updateButtonStatus(button, 'Update failed: ' + error.message);
+        button.classList.remove('loading');
+        setTimeout(() => {
+            clearButtonStatus(button);
+        }, 3000);
     }
 });
 
 document.getElementById('experimentalUpdateBtn').addEventListener('click', async () => {
+    const button = document.getElementById('experimentalUpdateBtn');
     try {
+        button.classList.add('loading');
+        updateButtonStatus(button, 'Checking experimental releases...');
+        
         const experimentalReleases = await ipcRenderer.invoke('get-experimental-releases');
         const systemArch = await ipcRenderer.invoke('get-system-arch');
         
-        if (experimentalReleases && experimentalReleases.length > 0) {
-            const latestExperimental = experimentalReleases[0];
-            const asset = latestExperimental.assets.find(a => a.name.includes(systemArch));
-            
-            if (asset) {
-                await ipcRenderer.invoke('install-version', {
-                    url: asset.browser_download_url,
-                    filename: asset.name
-                });
-                alert('Experimental update completed successfully!');
-                window.location.reload();
-            } else {
-                alert('No compatible experimental version found');
+        if (!experimentalReleases || experimentalReleases.length === 0) {
+            throw new Error('No experimental releases available');
+        }
+        
+        const latestExperimental = experimentalReleases[0];
+        updateButtonStatus(button, `Found version ${latestExperimental.tag_name}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const asset = latestExperimental.assets.find(a => a.name.includes(systemArch));
+        if (!asset) {
+            throw new Error('No compatible experimental version found');
+        }
+        
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 100) {
+                clearInterval(progressInterval);
+                progress = 100;
             }
+            updateButtonStatus(button, `Downloading ${latestExperimental.tag_name} (${Math.floor(progress)}%)`);
+        }, 500);
+        
+        await ipcRenderer.invoke('install-version', {
+            url: asset.browser_download_url,
+            filename: asset.name
+        });
+        
+        clearInterval(progressInterval);
+        updateButtonStatus(button, 'Running installer...');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        updateButtonStatus(button, 'Waiting for Pinokio to restart...');
+        const pinokioStatus = await waitForPinokio();
+        
+        if (pinokioStatus.success) {
+            updateButtonStatus(button, 'Experimental update completed!');
+            button.classList.remove('loading');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            clearButtonStatus(button);
+            // Wait for status to clear before reloading
+            await new Promise(resolve => setTimeout(resolve, 300));
+            window.location.reload();
         } else {
-            alert('No experimental releases available');
+            throw new Error(pinokioStatus.error);
         }
     } catch (error) {
-        alert('Update failed: ' + error.message);
+        updateButtonStatus(button, 'Update failed: ' + error.message);
+        button.classList.remove('loading');
+        setTimeout(() => {
+            clearButtonStatus(button);
+        }, 3000);
     }
 });
 
@@ -224,12 +456,17 @@ function showPinokioOfflineWarning() {
     }
     warningDiv.innerHTML = `
         <h3>⚠️ Pinokio Not Running</h3>
-        <p>Some information may not be up to date because Pinokio is not running. You can:</p>
-        <ol style="margin: 12px 0; padding-left: 24px;">
-            <li style="margin-bottom: 8px;">Launch Pinokio to get real-time information</li>
-            <li style="margin-bottom: 8px;">Continue using the app with potentially outdated information</li>
+        <p>Some information may not be up to date because Pinokio is not running or the version installed doesn't support the API (3.2.200 or higher required).</p>
+        <p>You can:</p>
+        <ol>
+            <li>Launch Pinokio to get real-time information</li>
+            <li>Update to a supported version using the Experimental Update button</li>
+            <li>Continue using the app with potentially outdated information</li>
         </ol>
-        <button class="action-button" onclick="document.getElementById('launchPinokioBtn').click()">Launch Pinokio</button>
+        <div class="action-group">
+            <button class="action-button" onclick="document.getElementById('launchPinokioBtn').click()">Launch Pinokio</button>
+            <button class="action-button" onclick="document.getElementById('experimentalUpdateBtn').click()">Update Pinokio</button>
+        </div>
     `;
 }
 
@@ -540,19 +777,17 @@ function showNotInitializedWarning(container) {
 async function updateAllInfo() {
     await updateSystemInfo();
     loadUpdates();
-    // Show cached storage values immediately and then recalculate
+    // Only show cached storage values, don't recalculate
     await displayCachedStorage();
-    updateStorageInfo();
 }
 
-// Update memory information periodically
+// Update memory information
 function updateMemoryInfo() {
-    fetch('http://localhost/pinokio/info')
-        .then(response => response.json())
-        .then(data => {
+    ipcRenderer.invoke('get-system-info')
+        .then(sysInfo => {
             const memoryInfo = document.getElementById('memoryInfo');
-            const memUsage = formatMemoryUsage(data.mem.used, data.mem.total);
-            const memPercentage = (data.mem.used / data.mem.total) * 100;
+            const memUsage = formatMemoryUsage(sysInfo.memory.used, sysInfo.memory.total);
+            const memPercentage = (sysInfo.memory.used / sysInfo.memory.total) * 100;
             
             memoryInfo.innerHTML = `
                 <div class="info-item">
@@ -615,6 +850,71 @@ function updateDisplayInfo(displayInfo) {
     `).join('');
 }
 
+// Cache for version data
+let versionCache = {
+    data: null,
+    lastUpdate: 0,
+    updateInterval: 60000 // 1 minute
+};
+
+async function loadUpdates(forceRefresh = false) {
+    try {
+        const now = Date.now();
+        const refreshButton = document.getElementById('refreshUpdates');
+        
+        // Use cached data if available and not forcing refresh
+        if (!forceRefresh && versionCache.data && (now - versionCache.lastUpdate) < versionCache.updateInterval) {
+            updateUpdatesList(versionCache.data);
+            return;
+        }
+
+        if (refreshButton) {
+            refreshButton.classList.add('spinning');
+        }
+
+        const [currentVersion, latestRelease, experimentalReleases, systemArch] = await Promise.all([
+            ipcRenderer.invoke('get-current-version'),
+            ipcRenderer.invoke('get-latest-release'),
+            ipcRenderer.invoke('get-experimental-releases'),
+            ipcRenderer.invoke('get-system-arch')
+        ]);
+
+        // Cache the results
+        versionCache.data = { currentVersion, latestRelease, experimentalReleases, systemArch };
+        versionCache.lastUpdate = now;
+
+        updateUpdatesList(versionCache.data);
+    } catch (error) {
+        console.error('Error loading updates:', error);
+        updatesList.innerHTML = `<div class="error">Error loading updates: ${error.message}</div>`;
+    } finally {
+        const refreshButton = document.getElementById('refreshUpdates');
+        if (refreshButton) {
+            refreshButton.classList.remove('spinning');
+        }
+    }
+}
+
+function updateUpdatesList({ currentVersion, latestRelease, experimentalReleases, systemArch }) {
+    updatesList.innerHTML = '';
+
+    if (latestRelease) {
+        const stableOption = createUpdateOption(latestRelease, 'Stable', systemArch, currentVersion);
+        updatesList.appendChild(stableOption);
+    }
+
+    if (experimentalReleases && experimentalReleases.length > 0) {
+        experimentalReleases.forEach(release => {
+            const experimentalOption = createUpdateOption(release, 'Experimental', systemArch, currentVersion);
+            updatesList.appendChild(experimentalOption);
+        });
+    }
+
+    if (updatesList.children.length === 0) {
+        updatesList.innerHTML = '<div class="error">No compatible updates found</div>';
+    }
+}
+
 function createUpdateOption(release, type, systemArch, currentVersion) {
     const option = document.createElement('div');
     option.className = 'update-option';
@@ -627,29 +927,31 @@ function createUpdateOption(release, type, systemArch, currentVersion) {
     const parsedNotes = marked.parse(releaseNotes);
 
     option.innerHTML = `
-        <div class="version-tag">${release.tag_name} ${isCurrentVersion ? '(Current)' : ''}</div>
-        <div class="version-type">${type} Release ${isCompatible ? '' : '(Incompatible)'}</div>
+        <div class="version-info">
+            <div>
+                <div class="version-tag">${release.tag_name}</div>
+                <div class="version-type">${type} Release ${isCompatible ? '' : '(Incompatible)'}</div>
+            </div>
+            ${isCurrentVersion ? `<div class="current-version">Current Version</div>` : ''}
+        </div>
         <div class="release-notes expanded markdown-body">
             ${parsedNotes}
         </div>
-        ${isCompatible && !isCurrentVersion ? `
-            <button class="action-button install-button">Install ${release.tag_name}</button>
-        ` : isCurrentVersion ? `
-            <div class="info-value">You are already on this version.</div>
+        ${isCompatible ? `
+            <button class="install-button">
+                ${isCurrentVersion ? 'Reinstall' : 'Install'} ${release.tag_name}
+            </button>
         ` : ''}
     `;
 
-    if (isCompatible && !isCurrentVersion) {
+    if (isCompatible) {
         const installButton = option.querySelector('.install-button');
-        installButton.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            
+        installButton.addEventListener('click', async () => {
             try {
-                installButton.disabled = true;
-                installButton.textContent = `Installing ${release.tag_name}...`;
                 installButton.classList.add('loading');
+                installButton.textContent = 'Installing...';
+                installButton.disabled = true;
                 
-                // Find the correct asset for the current system architecture
                 const relevantAsset = release.assets.find(a => a.name.includes(systemArch));
                 if (!relevantAsset) {
                     throw new Error('No compatible version found for your system');
@@ -660,14 +962,28 @@ function createUpdateOption(release, type, systemArch, currentVersion) {
                     filename: relevantAsset.name
                 });
                 
-                alert(`Successfully installed Pinokio ${release.tag_name}`);
-                window.location.reload();
+                installButton.textContent = 'Running installer...';
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                installButton.textContent = 'Waiting for Pinokio to restart...';
+                const pinokioStatus = await waitForPinokio();
+                
+                if (pinokioStatus.success) {
+                    installButton.textContent = 'Installation successful!';
+                    installButton.classList.remove('loading');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    window.location.reload();
+                } else {
+                    throw new Error(pinokioStatus.error);
+                }
             } catch (error) {
                 console.error('Installation error:', error);
-                alert(`Installation failed: ${error.message}`);
-                installButton.disabled = false;
-                installButton.textContent = `Install ${release.tag_name}`;
+                installButton.textContent = `Installation failed: ${error.message}`;
                 installButton.classList.remove('loading');
+                setTimeout(() => {
+                    installButton.disabled = false;
+                    installButton.textContent = `${isCurrentVersion ? 'Reinstall' : 'Install'} ${release.tag_name}`;
+                }, 3000);
             }
         });
     }
@@ -675,43 +991,16 @@ function createUpdateOption(release, type, systemArch, currentVersion) {
     return option;
 }
 
-async function loadUpdates() {
-    try {
-        const [currentVersion, latestRelease, experimentalReleases, systemArch] = await Promise.all([
-            ipcRenderer.invoke('get-current-version'),
-            ipcRenderer.invoke('get-latest-release'),
-            ipcRenderer.invoke('get-experimental-releases'),
-            ipcRenderer.invoke('get-system-arch')
-        ]);
+// Add refresh button handler
+document.getElementById('refreshUpdates')?.addEventListener('click', () => {
+    loadUpdates(true);
+});
 
-        updatesList.innerHTML = '';
-
-        if (latestRelease) {
-            const stableOption = createUpdateOption(latestRelease, 'Stable', systemArch, currentVersion);
-            updatesList.appendChild(stableOption);
-        }
-
-        if (experimentalReleases && experimentalReleases.length > 0) {
-            experimentalReleases.forEach(release => {
-                const experimentalOption = createUpdateOption(release, 'Experimental', systemArch, currentVersion);
-                updatesList.appendChild(experimentalOption);
-            });
-        }
-
-        if (updatesList.children.length === 0) {
-            updatesList.innerHTML = '<div class="error">No compatible updates found</div>';
-        }
-    } catch (error) {
-        console.error('Error loading updates:', error);
-        updatesList.innerHTML = `<div class="error">Error loading updates: ${error.message}</div>`;
-    }
-}
-
-// Check for updates button handler
-checkUpdatesBtn.addEventListener('click', () => {
+// Update check updates button to refresh updates page
+document.getElementById('checkUpdatesBtn').addEventListener('click', () => {
     const updatesNavItem = document.querySelector('[data-view="updates"]');
     updatesNavItem.click();
-    loadUpdates();
+    loadUpdates(true);
 });
 
 // Peer Checker functionality
@@ -968,5 +1257,56 @@ updateAllInfo();
 setInterval(() => {
     if (appConfig?.initialized) {
         updateSystemInfo();
+        updateMemoryInfo(); // Add periodic memory updates
     }
 }, 5000);
+
+// Warning box animation handlers
+function showWarningBox(warningBox) {
+    warningBox.classList.remove('hiding');
+    warningBox.style.display = 'block';
+    // Force a reflow to ensure the animation plays
+    void warningBox.offsetWidth;
+}
+
+function hideWarningBox(warningBox) {
+    warningBox.classList.add('hiding');
+    // Wait for the animation to complete before hiding
+    warningBox.addEventListener('animationend', () => {
+        if (warningBox.classList.contains('hiding')) {
+            warningBox.style.display = 'none';
+            warningBox.classList.remove('hiding');
+        }
+    }, { once: true });
+}
+
+// Update warning box visibility functions to use animations
+function updateWarningBoxVisibility(pinokioRunning) {
+    const warningBox = document.querySelector('.warning-box.pinokio-warning');
+    if (!warningBox) return;
+
+    if (pinokioRunning) {
+        hideWarningBox(warningBox);
+    } else {
+        showWarningBox(warningBox);
+    }
+}
+
+// Add this to periodically check Pinokio status and update warning box
+async function checkPinokioStatus() {
+    try {
+        const response = await fetch('http://localhost/pinokio/info');
+        if (response.ok) {
+            updateWarningBoxVisibility(true);
+        } else {
+            updateWarningBoxVisibility(false);
+        }
+    } catch (error) {
+        updateWarningBoxVisibility(false);
+    }
+}
+
+// Check Pinokio status every 5 seconds
+setInterval(checkPinokioStatus, 5000);
+// Also check immediately on load
+checkPinokioStatus();

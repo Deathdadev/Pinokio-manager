@@ -1,7 +1,12 @@
 {
   "name": "pinokio-manager",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "A modern UI for managing Pinokio versions",
+  "homepage": "https://github.com/Deathdadev/pinokio-manager",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Deathdadev/pinokio-manager.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -32,7 +37,8 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "publish": ["github"]
     },
     "mac": {
       "target": "dmg",
