@@ -1,6 +1,6 @@
 {
   "name": "pinokio-manager",
-  "version": "1.1.1",
+  "version": "1.1.0",
   "description": "A modern UI for managing Pinokio versions",
   "homepage": "https://github.com/Deathdadev/pinokio-manager",
   "repository": {
@@ -21,6 +21,8 @@
   "license": "BSD-3-Clause",
   "dependencies": {
     "axios": "^1.6.2",
+    "electron-log": "^5.2.4",
+    "electron-updater": "^6.3.9",
     "extract-zip": "^2.0.1",
     "marked": "^15.0.6",
     "systeminformation": "^5.21.24"
@@ -30,19 +32,39 @@
     "electron-builder": "^24.9.1"
   },
   "build": {
+    "compression": "maximum",
+    "asar": true,
+    "files": [
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin"
+    ],
     "appId": "com.pinokio.manager",
     "productName": "Pinokio Manager",
     "directories": {
       "output": "dist"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "Deathdadev",
+      "repo": "pinokio-manager",
+      "private": false
+    },
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico",
-      "publish": ["github"]
+      "publish": [
+        "github"
+      ]
     },
     "mac": {
       "target": "dmg",
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.icns",
+      "publish": [
+        "github"
+      ]
     },
     "linux": {
       "target": [
@@ -50,7 +72,10 @@
         "deb",
         "rpm"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "publish": [
+        "github"
+      ]
     }
   }
 }

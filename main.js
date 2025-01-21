@@ -9,6 +9,77 @@ const pipeline = promisify(stream.pipeline);
 const extract = require('extract-zip');
 const { spawn } = require('child_process');
 const { opendir, readFile, access, constants } = require('fs/promises');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+// Configure auto-updater logging
+log.transports.file.level = "debug";
+autoUpdater.logger = log;
+autoUpdater.autoDownload = false;
+autoUpdater.allowPrerelease = false;
+
+// Auto-updater events
+autoUpdater.on('checking-for-update', () => {
+    mainWindow?.webContents.send('update-status', { status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update-status', { 
+        status: 'available',
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseName: info.releaseName,
+        releaseDate: info.releaseDate
+    });
+});
+
+autoUpdater.on('update-not-available', () => {
+    mainWindow?.webContents.send('update-status', { status: 'not-available' });
+});
+
+autoUpdater.on('error', (err) => {
+    mainWindow?.webContents.send('update-status', { 
+        status: 'error',
+        error: err.message
+    });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+    mainWindow?.webContents.send('update-status', {
+        status: 'downloading',
+        progress: progressObj
+    });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+    mainWindow?.webContents.send('update-status', {
+        status: 'downloaded',
+        version: info.version
+    });
+});
+
+// IPC handlers for auto-updater
+ipcMain.handle('check-for-updates', async () => {
+    try {
+        return await autoUpdater.checkForUpdates();
+    } catch (error) {
+        console.error('Error checking for updates:', error);
+        throw error;
+    }
+});
+
+ipcMain.handle('download-update', async () => {
+    try {
+        return await autoUpdater.downloadUpdate();
+    } catch (error) {
+        console.error('Error downloading update:', error);
+        throw error;
+    }
+});
+
+ipcMain.handle('quit-and-install', () => {
+    autoUpdater.quitAndInstall(false, true);
+});
 
 // Configuration manager
 const configPath = path.join(app.getPath('userData'), 'config.json');

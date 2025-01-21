@@ -2,6 +2,117 @@ const { ipcRenderer } = require('electron');
 const marked = require('marked');
 const path = require('path');
 
+// Auto-update event handling
+let updateAvailable = false;
+let updateDownloaded = false;
+let updateInfo = null;
+
+ipcRenderer.on('update-status', (event, status) => {
+    const quickUpdateBtn = document.getElementById('quickUpdateBtn');
+    
+    switch (status.status) {
+        case 'checking':
+            updateButtonStatus(quickUpdateBtn, 'Checking for updates...');
+            break;
+            
+        case 'available':
+            updateAvailable = true;
+            updateInfo = status;
+            updateButtonStatus(quickUpdateBtn, `Update ${status.version} available`);
+            showUpdateNotification(status);
+            break;
+            
+        case 'not-available':
+            updateButtonStatus(quickUpdateBtn, 'No updates available');
+            setTimeout(() => {
+                clearButtonStatus(quickUpdateBtn);
+            }, 3000);
+            break;
+            
+        case 'downloading':
+            const progress = Math.round(status.progress.percent);
+            updateButtonStatus(quickUpdateBtn, `Downloading: ${progress}%`);
+            break;
+            
+        case 'downloaded':
+            updateDownloaded = true;
+            updateButtonStatus(quickUpdateBtn, 'Update ready to install');
+            showInstallNotification(status);
+            break;
+            
+        case 'error':
+            updateButtonStatus(quickUpdateBtn, `Error: ${status.error}`);
+            setTimeout(() => {
+                clearButtonStatus(quickUpdateBtn);
+            }, 5000);
+            break;
+    }
+});
+
+function showUpdateNotification(info) {
+    const notification = document.createElement('div');
+    notification.className = 'update-notification';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <h3>Update Available: ${info.version}</h3>
+            <p>${info.releaseNotes ? marked.parse(info.releaseNotes) : 'A new version is available.'}</p>
+            <div class="notification-actions">
+                <button class="action-button" onclick="downloadUpdate()">Download Update</button>
+                <button class="action-button secondary" onclick="this.parentElement.parentElement.parentElement.remove()">Later</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notification);
+}
+
+function showInstallNotification(info) {
+    const notification = document.createElement('div');
+    notification.className = 'update-notification';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <h3>Update Ready to Install</h3>
+            <p>Version ${info.version} has been downloaded and is ready to install.</p>
+            <div class="notification-actions">
+                <button class="action-button" onclick="installUpdate()">Install and Restart</button>
+                <button class="action-button secondary" onclick="this.parentElement.parentElement.parentElement.remove()">Later</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notification);
+}
+
+async function checkForUpdates() {
+    try {
+        await ipcRenderer.invoke('check-for-updates');
+    } catch (error) {
+        console.error('Error checking for updates:', error);
+    }
+}
+
+async function downloadUpdate() {
+    if (!updateAvailable) return;
+    
+    const quickUpdateBtn = document.getElementById('quickUpdateBtn');
+    try {
+        updateButtonStatus(quickUpdateBtn, 'Starting download...');
+        await ipcRenderer.invoke('download-update');
+    } catch (error) {
+        console.error('Error downloading update:', error);
+        updateButtonStatus(quickUpdateBtn, 'Download failed');
+        setTimeout(() => {
+            clearButtonStatus(quickUpdateBtn);
+        }, 3000);
+    }
+}
+
+function installUpdate() {
+    if (!updateDownloaded) return;
+    ipcRenderer.invoke('quit-and-install');
+}
+
+// Check for updates when the app starts
+setTimeout(checkForUpdates, 3000);
+
 // Theme handling
 const themeToggle = document.getElementById('themeToggle');
 let currentTheme = localStorage.getItem('theme') || 'light';
