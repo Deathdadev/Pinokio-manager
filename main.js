@@ -274,12 +274,16 @@ ipcMain.handle('launch-pinokio', async () => {
             const exePath = possiblePaths.find(p => fs.existsSync(p));
             
             if (exePath) {
-                const proc = spawn(exePath, [], {
-                    detached: true,
-                    stdio: 'ignore',
-                    cwd: path.dirname(exePath)
-                });
-                proc.unref();
+                if (fs.existsSync(exePath) && fs.lstatSync(exePath).isFile()) {
+                    const proc = spawn(exePath, [], {
+                        detached: true,
+                        stdio: 'ignore',
+                        cwd: path.dirname(exePath)
+                    });
+                    proc.unref();
+                } else {
+                    throw new Error('Invalid executable path');
+                }
                 return;
             }
         } catch (error) {
