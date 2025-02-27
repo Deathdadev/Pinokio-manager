@@ -325,10 +325,12 @@ async function getDirectorySize(dirPath) {
             const execFileAsync = util.promisify(execFile);
             
             // Use PowerShell to calculate directory size (much faster than Node.js recursive approach)
+            // Pass the path as a parameter to avoid command injection
             const { stdout } = await execFileAsync('powershell', [
                 '-NoProfile',
                 '-Command',
-                `(Get-ChildItem -Path '${dirPath}' -Recurse -Force | Measure-Object -Property Length -Sum).Sum`
+                '$path = $args[0]; (Get-ChildItem -Path $path -Recurse -Force | Measure-Object -Property Length -Sum).Sum',
+                dirPath
             ]);
             
             const size = parseInt(stdout.trim()) || 0;
@@ -575,6 +577,11 @@ ipcMain.handle('get-drive-info', async (event, driveLetter) => {
         const si = require('systeminformation');
         const drives = await si.fsSize();
         
+        // Validate driveLetter is a single character
+        if (typeof driveLetter !== 'string' || driveLetter.length !== 1 || !/^[a-zA-Z]$/.test(driveLetter)) {
+            throw new Error('Invalid drive letter format');
+        }
+        
         // Find the drive that matches the drive letter
         const drive = drives.find(d => {
             const mount = process.platform === 'win32' ? 
@@ -597,10 +604,13 @@ ipcMain.handle('get-drive-info', async (event, driveLetter) => {
             const util = require('util');
             const execFileAsync = util.promisify(execFile);
 
+            // Use sanitized drive letter
+            const sanitizedDriveLetter = driveLetter.toUpperCase();
+            
             const { stdout } = await execFileAsync('wmic', [
                 'logicaldisk',
                 'where',
-                `DeviceID='${driveLetter}:'`,
+                `DeviceID='${sanitizedDriveLetter}:'`,
                 'get',
                 'size,freespace',
                 '/format:csv'
